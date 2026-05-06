@@ -1,16 +1,18 @@
+// ملف بناء المشروع الرئيسي - تم تصحيحه لتجنب تضارب المخازن
 buildscript {
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
+        // نسخة الـ Gradle المتوافقة مع أندرويد 13 و 14
         classpath 'com.android.tools.build:gradle:8.1.0'
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
+// تم حذف سطر allprojects من هنا لأننا وضعناه في settings.gradle
+// هذا هو النظام الجديد في Gradle 8.0+
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
 }
