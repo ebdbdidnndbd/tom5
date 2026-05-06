@@ -3,26 +3,23 @@ plugins {
 }
 
 android {
-    namespace 'com.tom5.monitor' // تأكد أن هذا يطابق حزمتك (Package Name)
-    compileSdk 34 // أحدث إصدار لدعم ميزات النظام الجديدة
+    namespace 'com.tom5.monitor'
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.tom5.monitor"
-        minSdk 21    // يدعم من أندرويد 5 فما فوق (ضروري لخدمة MediaProjection)
-        targetSdk 34 // لضمان التوافق مع سياسات الأندرويد الحديثة
+        minSdk 21
+        targetSdk 34
         versionCode 1
         versionName "1.0"
-
-        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            minifyEnabled false // يفضل تعطيله في البداية لتجنب مشاكل حذف الأكواد تلقائياً
+            minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-    
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -30,15 +27,7 @@ android {
 }
 
 dependencies {
-    // المكتبات الأساسية للواجهات
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-
-    // مكتبة OkHttp - ضرورية جداً لإرسال البيانات للتيليجرام وتفعيل البروكسي
-    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
-
-    // مكتبة Firebase - إذا كنت تريد إضافة قواعد بيانات مستقبلاً
-    implementation platform('com.google.firebase:firebase-bom:32.2.0')
-    implementation 'com.google.firebase:firebase-database'
+    implementation 'com.squareup.okhttp3:okhttp:4.11.0' // ضروري للبروكسي
 }
