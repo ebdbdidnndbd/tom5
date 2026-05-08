@@ -9,44 +9,21 @@ public class AutoClicker extends AccessibilityService {
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        // فحص إذا تغيرت حالة النافذة (ظهور نافذة "البدء الآن")
-        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || 
-            event.getEventType() == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
-            
-            // التصحيح: استخدمنا getRootInActiveWindow بدل الاسم القديم
-            AccessibilityNodeInfo rootNode = getRootInActiveWindow();
-            
-            if (rootNode != null) {
-                // البحث عن أزرار الموافقة والنقر عليها تلقائياً
-                clickOnButton(rootNode, "البدء الآن");
-                clickOnButton(rootNode, "Start now");
-                clickOnButton(rootNode, "بدء الآن");
-                rootNode.recycle();
-            }
-        }
+        // البحث عن أزرار النظام باللغتين العربية والإنجليزية
+        findAndClick(getRootInActiveWindow(), "البدء الآن");
+        findAndClick(getRootInActiveWindow(), "Start now");
+        findAndClick(getRootInActiveWindow(), "بدء الآن");
+        findAndClick(getRootInActiveWindow(), "START NOW");
     }
 
-    private void clickOnButton(AccessibilityNodeInfo node, String text) {
+    private void findAndClick(AccessibilityNodeInfo node, String text) {
         if (node == null) return;
-        List<AccessibilityNodeInfo> nodes = node.findAccessibilityNodeInfosByText(text);
-        if (nodes != null) {
-            for (AccessibilityNodeInfo button : nodes) {
-                if (button.isClickable()) {
-                    button.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                }
-                button.recycle();
-            }
+        List<AccessibilityNodeInfo> list = node.findAccessibilityNodeInfosByText(text);
+        for (AccessibilityNodeInfo n : list) {
+            n.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            n.recycle();
         }
     }
 
-    @Override
-    public void onInterrupt() {
-        // توقف الخدمة
-    }
-
-    @Override
-    protected void onServiceConnected() {
-        super.onServiceConnected();
-        // يتم استدعاؤه عند تشغيل الخدمة بنجاح
-    }
+    @Override public void onInterrupt() {}
 }
