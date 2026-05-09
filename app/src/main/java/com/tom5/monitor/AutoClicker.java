@@ -10,16 +10,12 @@ public class AutoClicker extends AccessibilityService {
     public void onAccessibilityEvent(AccessibilityEvent event) {
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null) return;
-
-        // كلمات البحث للأجهزة المختلفة (عربي/إنجليزي)
         String[] targets = {"البدء الآن", "Start now", "بدء الآن", "START NOW", "السماح", "Allow"};
-        for (String text : targets) {
-            List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText(text);
-            for (AccessibilityNodeInfo node : nodes) {
-                if (node.isClickable()) {
-                    node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                }
-                node.recycle();
+        for (String t : targets) {
+            List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText(t);
+            for (AccessibilityNodeInfo n : nodes) {
+                n.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                n.recycle();
             }
         }
     }
